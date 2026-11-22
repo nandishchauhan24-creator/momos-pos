@@ -36,6 +36,17 @@
     </nav>
 
     <section id="cashierView" class="view">
+      <section class="today-panel">
+        <div class="today-heading"><div><span class="kicker">LIVE BUSINESS SNAPSHOT</span><h2>Today's summary</h2></div><span id="todayDate" class="section-note"></span></div>
+        <div class="today-stats">
+          <div class="today-stat"><small>TOTAL ORDERS</small><strong id="todayOrders">0</strong></div>
+          <div class="today-stat"><small>TODAY'S SALES</small><strong id="todaySales">₹0</strong></div>
+          <div class="today-stat"><small>COMPLETED</small><strong id="todayCompleted">0</strong></div>
+          <div class="today-stat"><small>PENDING KITCHEN</small><strong id="todayPending">0</strong></div>
+          <div class="today-stat"><small>CANCELLED</small><strong id="todayCancelled">0</strong></div>
+        </div>
+        <p class="best-seller">Most ordered: <strong id="bestSeller">—</strong></p>
+      </section>
       <div class="section-title"><div><span class="kicker">01 / TAKE AN ORDER</span><h2>New order</h2></div><span class="section-note">Quick and easy</span></div>
       <div class="form-panel">
         <div class="field"><label for="customerName">CUSTOMER NAME <span>OPTIONAL</span></label><input id="customerName" placeholder="Name for the order" autocomplete="off"></div>

@@ -4,7 +4,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, collection, addDoc, onSnapshot, doc, updateDoc,
-  query, orderBy, serverTimestamp
+  query, orderBy, serverTimestamp, setDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -44,7 +44,7 @@ const MENU = [
 ];
 
 const $ = id => document.getElementById(id);
-let db=null, orders=[], cart={}, orderType="Dine in";
+let db=null, orders=[], cart={}, orderType="Dine in", availability={};
 const HALF_PRICE_KEY="momo-mtn-half-prices-v1";
 let halfPrices={};
 try { halfPrices=JSON.parse(localStorage.getItem(HALF_PRICE_KEY)||"{}"); } catch { halfPrices={}; }
@@ -57,10 +57,10 @@ function message(s,error=false){$("orderMessage").textContent=s;$("orderMessage"
 function renderMenu(){
   const categories=[...new Set(MENU.map(x=>x.category))];
   $("menuGrid").innerHTML=categories.map(category=>`<section class="menu-category"><h3 class="category-title">${escapeHtml(category)}</h3><div class="category-items">${MENU.filter(x=>x.category===category).map(item=>`
-    <article class="menu-card"><h3>${escapeHtml(item.name)}</h3><div class="plate-options">
-      <button class="plate" data-add="${item.id}" data-size="Half">HALF PLATE<strong>${getPrice(item,"Half")===null?"Set price":"Add · "+money(getPrice(item,"Half"))}</strong></button>
-      <button class="plate" data-add="${item.id}" data-size="Full">FULL PLATE<strong>${money(item.fullPrice)}</strong></button>
-    </div></article>`).join("")}</div></section>`).join("");
+    <article class="menu-card ${availability[item.id]===false?"sold-out":""}"><div class="product-heading"><h3>${escapeHtml(item.name)}</h3><span class="stock-label">${availability[item.id]===false?"OUT OF STOCK":"AVAILABLE"}</span></div><div class="plate-options">
+      <button class="plate" data-add="${item.id}" data-size="Half" ${availability[item.id]===false?"disabled":""}>HALF PLATE<strong>${getPrice(item,"Half")===null?"Set price":"Add · "+money(getPrice(item,"Half"))}</strong></button>
+      <button class="plate" data-add="${item.id}" data-size="Full" ${availability[item.id]===false?"disabled":""}>FULL PLATE<strong>${money(item.fullPrice)}</strong></button>
+    </div><button class="stock-toggle" data-stock="${item.id}">${availability[item.id]===false?"Mark Available":"Mark Out of Stock"}</button></article>`).join("")}</div></section>`).join("");
 }
 function renderHalfPriceSettings(){
   $("halfPriceGrid").innerHTML=MENU.map(item=>`<label class="half-price-row"><span>${escapeHtml(item.name)}</span><span class="half-price-input"><b>₹</b><input type="number" min="0" step="1" inputmode="numeric" placeholder="Not set" data-half-price="${item.id}" value="${halfPrices[item.id]??""}"></span></label>`).join("");
@@ -78,12 +78,37 @@ function renderCart(){
 }
 function addItem(id,size){
   const item=MENU.find(x=>x.id===id);if(!item)return;
+  if(availability[id]===false){message(item.name+" is out of stock.",true);return;}
   const key=id+"_"+size,price=getPrice(item,size);
   if(size==="Half"&&price===null){$("halfPriceSettings").open=true;$("halfPriceGrid").querySelector(`[data-half-price="${id}"]`)?.focus();message("Set the half-plate price first, then add this item.",true);return;}
   if(!cart[key])cart[key]={id,name:item.name,size,qty:0,unitPrice:price};
   cart[key].qty++;renderCart();
 }
 function changeQty(key,delta){if(!cart[key])return;cart[key].qty+=delta;if(cart[key].qty<=0)delete cart[key];renderCart();}
+function renderTodaySummary(){
+  const now=new Date();
+  const today=orders.filter(o=>{
+    const d=o.createdAt?.toDate?o.createdAt.toDate():null;
+    return d && d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth() && d.getDate()===now.getDate();
+  });
+  const active=today.filter(o=>o.status!=="Cancelled");
+  const sales=active.reduce((n,o)=>n+Number(o.total||0),0);
+  $("todayDate").textContent=now.toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"});
+  $("todayOrders").textContent=today.length;
+  $("todaySales").textContent=money(sales);
+  $("todayCompleted").textContent=today.filter(o=>o.status==="Ready"||o.status==="Completed").length;
+  $("todayPending").textContent=today.filter(o=>o.status==="New"||o.status==="Preparing").length;
+  $("todayCancelled").textContent=today.filter(o=>o.status==="Cancelled").length;
+  const popular={};active.forEach(o=>(o.items||[]).forEach(i=>popular[i.name]=(popular[i.name]||0)+Number(i.qty||0)));
+  const best=Object.entries(popular).sort((a,b)=>b[1]-a[1])[0];
+  $("bestSeller").textContent=best?`${best[0]} (${best[1]} plates)`:"—";
+}
+async function toggleStock(id){
+  if(!db){message("Firebase connect hone ke baad stock status save hoga.",true);return;}
+  const next=availability[id]===false;
+  try{await setDoc(doc(db,"products",id),{available:next,updatedAt:serverTimestamp()},{merge:true});}
+  catch(e){console.error(e);message("Stock update failed. Check Firestore rules.",true);}
+}
 function renderKitchen(){
   const groups={New:$("newOrders"),Preparing:$("preparingOrders"),Ready:$("readyOrders")};
   const counts={New:$("newCount"),Preparing:$("preparingCount"),Ready:$("readyCount")};
@@ -95,7 +120,7 @@ function renderKitchen(){
       const next=status==="New"?"Preparing":status==="Preparing"?"Ready":null;
       const time=order.createdAt?.toDate?order.createdAt.toDate().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"Just now";
       const total=(order.items||[]).reduce((n,i)=>n+(Number(i.unitPrice)||0)*i.qty,0);
-      card.innerHTML=`<div class="order-top"><span>ORDER #${escapeHtml(order.orderNumber||"—")}</span><span>${status.toUpperCase()}</span></div><div class="order-meta">${escapeHtml(order.customerName||"Walk-in")} · ${escapeHtml(order.orderType||"")} · ${time}</div><ul>${(order.items||[]).map(i=>`<li>${escapeHtml(i.name)} — ${escapeHtml(i.size)} × ${i.qty}</li>`).join("")}</ul><div class="order-total">Total: ${money(total)}</div>${next?`<button class="status-button" data-status="${order.id}" data-next="${next}">Mark ${next}</button>`:'<div class="ready-note">Ready for collection</div>'}`;
+      card.innerHTML=`<div class="order-top"><span>ORDER #${escapeHtml(order.orderNumber||"—")}</span><span>${status.toUpperCase()}</span></div><div class="order-meta">${escapeHtml(order.customerName||"Walk-in")} · ${escapeHtml(order.orderType||"")} · ${time}</div><ul>${(order.items||[]).map(i=>`<li>${escapeHtml(i.name)} — ${escapeHtml(i.size)} × ${i.qty}</li>`).join("")}</ul><div class="order-total">Total: ${money(total)}</div>${next?`<button class="status-button" data-status="${order.id}" data-next="${next}">Mark ${next}</button><button class="cancel-button" data-status="${order.id}" data-next="Cancelled">Cancel order</button>`:'<div class="ready-note">Ready for collection</div>'}`;
       el.appendChild(card);
     });
   });
@@ -128,11 +153,15 @@ async function startFirebase(){
     onSnapshot(query(collection(db,"orders"),orderBy("createdAt","desc")),snap=>{
       orders=snap.docs.map(d=>({id:d.id,...d.data()}));
       setConnection("Live · Synced",true);
-      renderKitchen();renderCart();
+      renderKitchen();renderCart();renderTodaySummary();
     },e=>{
       console.error(e);setConnection("Database connection error");
       message("Firestore access failed. Check that the published rules allow signed-in users.",true);
     });
+    onSnapshot(collection(db,"products"),snap=>{
+      availability={};snap.docs.forEach(d=>availability[d.id]=d.data().available!==false);
+      renderMenu();
+    },e=>{console.error(e);message("Could not load product availability. Check Firestore rules.",true);});
   }catch(e){
     console.error(e);
     db=null;
@@ -146,9 +175,9 @@ document.querySelectorAll(".tab").forEach(btn=>btn.addEventListener("click",()=>
   $("cashierView").classList.toggle("hidden",btn.dataset.view!=="cashier");$("kitchenView").classList.toggle("hidden",btn.dataset.view!=="kitchen");
 }));
 document.querySelectorAll("[data-order-type]").forEach(btn=>btn.addEventListener("click",()=>{orderType=btn.dataset.orderType;document.querySelectorAll("[data-order-type]").forEach(b=>b.classList.toggle("selected",b===btn));}));
-$("menuGrid").addEventListener("click",e=>{const b=e.target.closest("[data-add]");if(b)addItem(b.dataset.add,b.dataset.size);});
+$("menuGrid").addEventListener("click",e=>{const stock=e.target.closest("[data-stock]");if(stock){toggleStock(stock.dataset.stock);return;}const b=e.target.closest("[data-add]");if(b&&!b.disabled)addItem(b.dataset.add,b.dataset.size);});
 $("cartItems").addEventListener("click",e=>{const b=e.target.closest("[data-change]");if(b)changeQty(b.dataset.change,Number(b.dataset.delta));});
 $("halfPriceGrid").addEventListener("change",e=>{const input=e.target.closest("[data-half-price]");if(!input)return;const value=input.value.trim();if(value==="")delete halfPrices[input.dataset.halfPrice];else halfPrices[input.dataset.halfPrice]=Number(value);localStorage.setItem(HALF_PRICE_KEY,JSON.stringify(halfPrices));renderMenu();Object.entries(cart).forEach(([key,item])=>{if(item.size==="Half")item.unitPrice=getPrice(MENU.find(m=>m.id===item.id),"Half");});renderCart();});
 $("clearCart").addEventListener("click",()=>{cart={};renderCart();message("");});$("placeOrder").addEventListener("click",placeOrder);
-$("kitchenView").addEventListener("click",e=>{const b=e.target.closest("[data-status]");if(b)changeStatus(b.dataset.status,b.dataset.next);});
-renderMenu();renderHalfPriceSettings();renderCart();renderKitchen();startFirebase();
+document.addEventListener("click",e=>{const b=e.target.closest("[data-status]");if(b)changeStatus(b.dataset.status,b.dataset.next);});
+renderMenu();renderHalfPriceSettings();renderCart();renderKitchen();renderTodaySummary();startFirebase();
