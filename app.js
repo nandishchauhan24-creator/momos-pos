@@ -1,18 +1,20 @@
 // MOMO MTN. POS — final menu and order workflow.
 // Firebase is used for live sharing between cashier and kitchen devices.
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, collection, addDoc, onSnapshot, doc, updateDoc,
   query, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "PASTE_YOUR_API_KEY",
-  authDomain: "PASTE_YOUR_PROJECT.firebaseapp.com",
-  projectId: "PASTE_YOUR_PROJECT_ID",
-  storageBucket: "PASTE_YOUR_PROJECT.appspot.com",
-  messagingSenderId: "PASTE_YOUR_MESSAGING_SENDER_ID",
-  appId: "PASTE_YOUR_APP_ID"
+  apiKey: "AIzaSyChonCA_x5ecD3o6buBm5js6Kjew4E",
+  authDomain: "momo-mtn-9a01c.firebaseapp.com",
+  projectId: "momo-mtn-9a01c",
+  storageBucket: "momo-mtn-9a01c.firebasestorage.app",
+  messagingSenderId: "988663160490",
+  appId: "1:988663160490:web:f20b13b643800e497afad3",
+  measurementId: "G-XTL9B7L1H8"
 };
 
 // Full-plate prices supplied by the stall. Half-plate prices are configured
@@ -112,12 +114,31 @@ async function placeOrder(){
   finally{renderCart();}
 }
 async function changeStatus(id,status){try{await updateDoc(doc(db,"orders",id),{status});}catch(e){console.error(e);alert("Status update failed. Check internet and Firebase rules.");}}
-function startFirebase(){
-  if(firebaseConfig.apiKey.startsWith("PASTE_")||firebaseConfig.projectId.startsWith("PASTE_")){setConnection("Firebase setup required");renderCart();return;}
+async function startFirebase(){
   try{
-    db=getFirestore(initializeApp(firebaseConfig));setConnection("Connecting to live orders…");renderCart();
-    onSnapshot(query(collection(db,"orders"),orderBy("createdAt","desc")),snap=>{orders=snap.docs.map(d=>({id:d.id,...d.data()}));setConnection("Live · Synced",true);renderKitchen();renderCart();},e=>{console.error(e);setConnection("Database connection error");});
-  }catch(e){console.error(e);setConnection("Firebase setup error");}
+    const app=initializeApp(firebaseConfig);
+    const auth=getAuth(app);
+    db=getFirestore(app);
+    setConnection("Signing in securely…");
+    renderCart();
+    // Firestore rules require an authenticated session. Anonymous sign-in
+    // gives this POS a Firebase-authenticated session without customer accounts.
+    await signInAnonymously(auth);
+    setConnection("Connecting to live orders…");
+    onSnapshot(query(collection(db,"orders"),orderBy("createdAt","desc")),snap=>{
+      orders=snap.docs.map(d=>({id:d.id,...d.data()}));
+      setConnection("Live · Synced",true);
+      renderKitchen();renderCart();
+    },e=>{
+      console.error(e);setConnection("Database connection error");
+      message("Firestore access failed. Check that the published rules allow signed-in users.",true);
+    });
+  }catch(e){
+    console.error(e);
+    db=null;
+    setConnection(e.code==="auth/operation-not-allowed"?"Enable Anonymous sign-in":"Firebase connection failed");
+    renderCart();
+  }
 }
 
 document.querySelectorAll(".tab").forEach(btn=>btn.addEventListener("click",()=>{
