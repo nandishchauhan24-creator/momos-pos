@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#183b36">
+  <title>Momo Mtn. — Order Desk</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="mountain-backdrop" aria-hidden="true">
+    <div class="sun"></div><div class="peak peak-back"></div><div class="peak peak-mid"></div><div class="peak peak-front"></div>
+  </div>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="Momo Mtn home">
+      <span class="brand-mark">雪</span>
+      <span><strong>MOMO MTN.</strong><small>HIMALAYAN MOMO HOUSE</small></span>
+    </a>
+    <div class="top-right"><span class="open-dot"></span><span id="connection">Connecting…</span></div>
+  </header>
+
+  <main class="shell">
+    <section class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow"><span>✦</span> WARM FOOD · MOUNTAIN SOUL</div>
+        <h1>A little taste<br><em>of the mountains.</em></h1>
+        <p>A calm, simple order desk inspired by the Eastern Himalayas.</p>
+      </div>
+      <div class="prayer-flags" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="hero-stamp">STEAMED<br>WITH CARE</div>
+    </section>
+
+    <nav class="tabs" aria-label="POS views">
+      <button class="tab active" data-view="cashier">◈ &nbsp; Cashier desk</button>
+      <button class="tab" data-view="kitchen">♨ &nbsp; Kitchen display</button>
+    </nav>
+
+    <section id="cashierView" class="view">
+      <div class="section-title"><div><span class="kicker">01 / TAKE AN ORDER</span><h2>New order</h2></div><span class="section-note">Quick and easy</span></div>
+      <div class="form-panel">
+        <div class="field"><label for="customerName">CUSTOMER NAME <span>OPTIONAL</span></label><input id="customerName" placeholder="Name for the order" autocomplete="off"></div>
+        <div class="field"><label>ORDER TYPE</label><div class="choice-row">
+          <button class="choice selected" data-order-type="Dine in"><span>◉</span> Dine in</button>
+          <button class="choice" data-order-type="Takeaway"><span>↗</span> Takeaway</button>
+        </div></div>
+      </div>
+
+      <div class="section-title menu-heading"><div><span class="kicker">02 / FROM OUR MENU</span><h2>Choose your momos</h2></div><span class="section-note">Half or full plate</span></div>
+      <div id="menuGrid" class="menu-grid"></div>
+
+      <details class="half-price-settings">
+        <summary>Set half-plate prices <span>Optional setup · prices can be added later</span></summary>
+        <p>Full-plate prices are already set. Half-plate prices are left blank until you enter them here. These settings are saved on this cashier device.</p>
+        <div id="halfPriceGrid" class="half-price-grid"></div>
+      </details>
+
+      <section class="summary-panel">
+        <div class="summary-head"><div><span class="kicker">03 / CHECK BEFORE SENDING</span><h2>Order summary</h2></div><button id="clearCart" class="quiet-button">Clear order ↺</button></div>
+        <div id="cartItems" class="cart-items"><p class="empty-copy">Your order is waiting to be filled.</p></div>
+        <div class="summary-bottom">
+          <div><span class="summary-label">ITEMS</span><strong id="itemCount">0</strong></div>
+          <div class="total-block"><span class="summary-label">TOTAL</span><strong id="grandTotal">Price not set</strong></div>
+        </div>
+        <p id="priceNote" class="price-note">Half-plate prices can be configured above.</p>
+        <button id="placeOrder" class="primary-button" disabled>Send order to kitchen <span>→</span></button>
+        <p id="orderMessage" class="message" aria-live="polite"></p>
+      </section>
+    </section>
+
+    <section id="kitchenView" class="view hidden">
+      <div class="section-title"><div><span class="kicker">LIVE ORDER BOARD</span><h2>Kitchen display</h2><p class="subline">Incoming orders appear here automatically.</p></div><span class="live-badge">● LIVE</span></div>
+      <div class="kitchen-columns">
+        <div class="kitchen-column"><h3><span class="status-dot new"></span> New <small id="newCount">0</small></h3><div id="newOrders" class="order-list"></div></div>
+        <div class="kitchen-column"><h3><span class="status-dot preparing"></span> Preparing <small id="preparingCount">0</small></h3><div id="preparingOrders" class="order-list"></div></div>
+        <div class="kitchen-column"><h3><span class="status-dot ready"></span> Ready <small id="readyCount">0</small></h3><div id="readyOrders" class="order-list"></div></div>
+      </div>
+    </section>
+    <footer><span>✦</span> MOMO MTN. <span class="footer-line"></span> Made for the momo counter</footer>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
