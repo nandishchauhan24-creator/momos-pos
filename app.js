@@ -8,7 +8,8 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyChonCA_x5ecD3o6buBm5js6Kjew4E",
+ 
+apiKey: "AIzaSyChonCA_x5ecD3o6buFsdeBm5js6Kjew4E",
   authDomain: "momo-mtn-9a01c.firebaseapp.com",
   projectId: "momo-mtn-9a01c",
   storageBucket: "momo-mtn-9a01c.firebasestorage.app",
