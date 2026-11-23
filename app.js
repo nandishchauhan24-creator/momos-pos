@@ -4,12 +4,11 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, collection, addDoc, onSnapshot, doc, updateDoc,
-  query, orderBy, serverTimestamp, setDoc
+  query, orderBy, serverTimestamp, setDoc, runTransaction
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
- 
-apiKey: "AIzaSyChonCA_x5ecD3o6buFsdeBm5js6Kjew4E",
+  apiKey: "AIzaSyChonCA_x5ecD3o6buBm5js6Kjew4E",
   authDomain: "momo-mtn-9a01c.firebaseapp.com",
   projectId: "momo-mtn-9a01c",
   storageBucket: "momo-mtn-9a01c.firebasestorage.app",
@@ -132,9 +131,20 @@ async function placeOrder(){
   if(items.some(i=>i.unitPrice===null)){message("Set all half-plate prices before sending.",true);return;}
   $("placeOrder").disabled=true;
   try{
-    const orderNumber=String(Date.now()).slice(-6);
+    // Local calendar date; Firestore transaction prevents duplicate numbers
+    // when multiple cashier devices place orders at the same time.
+    const now=new Date();
+    const dateKey=[now.getFullYear(),String(now.getMonth()+1).padStart(2,"0"),String(now.getDate()).padStart(2,"0")].join("-");
+    const counterRef=doc(db,"dailyOrderCounters",dateKey);
+    const orderRef=doc(collection(db,"orders"));
     const total=items.reduce((n,i)=>n+i.unitPrice*i.qty,0);
-    await addDoc(collection(db,"orders"),{orderNumber,customerName:$("customerName").value.trim()||"Walk-in",orderType,items,total,status:"New",createdAt:serverTimestamp()});
+    let orderNumber;
+    await runTransaction(db,async transaction=>{
+      const counterSnap=await transaction.get(counterRef);
+      orderNumber=Number(counterSnap.exists()?counterSnap.data().lastNumber||0:0)+1;
+      transaction.set(counterRef,{dateKey,lastNumber:orderNumber,updatedAt:serverTimestamp()});
+      transaction.set(orderRef,{orderNumber:String(orderNumber),dateKey,customerName:$("customerName").value.trim()||"Walk-in",orderType,items,total,status:"New",createdAt:serverTimestamp()});
+    });
     cart={};$("customerName").value="";renderCart();message(`Order #${orderNumber} sent to kitchen.`);
   }catch(e){console.error(e);message("Could not send order. Check Firebase setup and internet.",true);}
   finally{renderCart();}

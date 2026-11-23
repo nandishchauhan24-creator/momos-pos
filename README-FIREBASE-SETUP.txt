@@ -24,11 +24,16 @@ service cloud.firestore {
       allow read, create, update: if request.auth != null;
       allow delete: if false;
     }
+    match /dailyOrderCounters/{dateKey} {
+      allow read, create, update: if request.auth != null;
+      allow delete: if false;
+    }
   }
 }
 
 FEATURES
 - Today's summary counts orders created today using the device's local calendar date. Sales exclude cancelled orders.
+- Daily order numbers start at #1 and increment sequentially, resetting by the cashier device local date. Firestore transactions prevent duplicate numbers when multiple cashier devices place orders together.
 - Kitchen statuses New, Preparing, Ready; New/Preparing orders can also be cancelled.
 - Product availability is shared live through the Firestore “products” collection. Use “Mark Out of Stock” / “Mark Available” below each menu item. Out-of-stock products cannot be added to an order.
 - Half-plate prices remain saved in that cashier browser/device only.
